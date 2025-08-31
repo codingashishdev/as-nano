@@ -4,8 +4,8 @@ A minimal terminal text editor (in the spirit of nano/pico) that opens a file in
 
 # Specification
 
-Start the program
-Receive input to type characters
-Move cursor to edit document buffer
-Save document buffer to disk
-Load a file from disk
+- Start the program
+- Receive input to type characters
+- Move cursor to edit document buffer
+- Save document buffer to disk
+- Load a file from disk
