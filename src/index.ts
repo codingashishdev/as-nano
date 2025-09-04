@@ -115,52 +115,162 @@ function handleNormalModeKeypress(key: string) {
             break;
 
         // navigation using h,j,k,l
-        case 'k':
+        case "k":
         case Keys.ARROW_UP:
             if (Editor.cursorY > 0) Editor.cursorY--;
             break;
 
-        case 'j':
+        case "j":
         case Keys.ARROW_DOWN:
             if (Editor.cursorY < Editor.lines.length - 1) Editor.cursorY++;
             break;
-        
-        case 'h':
+
+        case "h":
         case Keys.ARROW_LEFT:
-            if(Editor.cursorX > 0)Editor.cursorX--;
+            if (Editor.cursorX > 0) Editor.cursorX--;
             break;
 
-        case 'l':
-            case Keys.ARROW_RIGHT:
-                if(Editor.cursorX < Editor.lines[Editor.cursorY].length)Editor.cursorX++;
-                break;
-        
+        case "l":
+        case Keys.ARROW_RIGHT:
+            if (Editor.cursorX < Editor.lines[Editor.cursorY].length)
+                Editor.cursorX++;
+            break;
+
         default:
             break;
     }
 }
 
-function handleInsertModeKeypress(key: string){
-    switch(key){
+function handleInsertModeKeypress(key: string) {
+    switch (key) {
         case Keys.ESCAPE:
-            Editor.mode = 'NORMAL'
-            Editor.status = 'HELP: Press `i` to insert | `ESC` to exit | `:w` to save | `:q` to quit'
+            Editor.mode = "NORMAL";
+            Editor.status =
+                "HELP: Press `i` to insert | `ESC` to exit | `:w` to save | `:q` to quit";
 
-            if(Editor.cursorX > 0 && Editor.cursorX >= Editor.lines[Editor.cursorY].length){
-                Editor.cursorX = Math.max(0, Editor.lines[Editor.cursorY].length-1)
+            if (
+                Editor.cursorX > 0 &&
+                Editor.cursorX >= Editor.lines[Editor.cursorY].length
+            ) {
+                Editor.cursorX = Math.max(
+                    0,
+                    Editor.lines[Editor.cursorY].length - 1
+                );
             }
             break;
 
         case Keys.ENTER:
-            const currentLine = Editor.lines[Editor.cursorY]
-            const newLine = currentLine.substring(Editor.cursorX)
+            // we are storing the entire current line in a variable
+            const currentLine = Editor.lines[Editor.cursorY];
+
+            /* it extracts all the content from the current cursor position to end of the line(it will be the content of the new line)
+             */
+            const newLine = currentLine.substring(Editor.cursorX);
+
+            // it contain only text that appears before the cursor position
+            Editor.lines[Editor.cursorY] = currentLine.substring(
+                0,
+                Editor.cursorX
+            );
+
+            // it inserts the extracted content as a new line in the Editor.lines array immediately after the current line.
+            Editor.lines.splice(Editor.cursorY + 1, 0, newLine);
+
+            // vertical line increase
+            Editor.cursorY++;
+
+            // place cursor at start of the line
+            Editor.cursorX = 0;
+            break;
+
+        case Keys.BACKSPACE:
+            if (Editor.cursorX > 0) {
+                let line = Editor.lines[Editor.cursorY];
+
+                Editor.lines[Editor.cursorY] =
+                    line.slice(0, Editor.cursorX - 1) +
+                    line.slice(Editor.cursorX);
+
+                Editor.cursorX--;
+            } else if (Editor.cursorY > 0) {
+                const previousLine = Editor.lines[Editor.cursorY - 1];
+                Editor.cursorX = previousLine.length;
+                Editor.lines[Editor.cursorY - 1] =
+                    Editor.lines[Editor.cursorY - 1] +
+                    Editor.lines[Editor.cursorY - 1];
+                Editor.lines.splice(Editor.cursorY, 1);
+                Editor.cursorY--;
+            }
+            break;
+
+        default:
+            if (key.length === 1 && !/[\x00-\x1F]/.test(key)) {
+                let line = Editor.lines[Editor.cursorY] || "";
+                Editor.lines[Editor.cursorY] =
+                    line.slice(0, Editor.cursorX) +
+                    key +
+                    line.slice(Editor.cursorX);
+                Editor.cursorX++;
+            }
+            break;
     }
+}
+
+function handleCommandModeKeyPress(key: string) {
+    switch (key) {
+        case Keys.ESCAPE:
+            Editor.mode = "NORMAL";
+            Editor.commandString = "";
+            break;
+
+        case Keys.ENTER:
+            // Executing the command
+            switch (Editor.commandString) {
+                case "w":
+                    saveFile();
+                    break;
+
+                case "q":
+                    cleanUpAndExit();
+                    break;
+
+                case "wq":
+                    saveFile();
+                    cleanUpAndExit();
+                    break;
+
+                default:
+                    Editor.status = `Not an editor command: ${Editor.commandString}`;
+            }
+
+            //returning to the normal mode after executing the command
+            Editor.mode = "NORMAL";
+            Editor.commandString = "";
+            break;
+
+        case Keys.BACKSPACE:
+            Editor.commandString = Editor.commandString.slice(0, -1);
+            break;
+
+        default:
+            //Appending typed characters to the command string
+            if (key.length === 1 && !/[\x00-\x1F]/.test(key)) {
+                Editor.commandString += key;
+            }
+            break;
+    }
+}
+
+function cleanUpAndExit() {
+    Terminal.clearScreen()
+    process.stdin.setRawMode(false)
+    process.exit()
 }
 
 function handleKeypress(key: string) {
     if (Editor.mode == "NORMAL") {
         handleNormalModeKeypress(key);
-    } else if (Editor.mode == "INSET") {
+    } else if (Editor.mode == "INSERT") {
         handleInsertModeKeypress(key);
     } else {
         handleCommandModeKeyPress(key);
@@ -176,7 +286,7 @@ function handleKeypress(key: string) {
 function runEditor(filePath: string) {
     Editor.filePath = filePath;
     try {
-        const fileContent = fs.readFileSync(filePath, "utf-8");
+        const fileContent = fs.readFileSync(filePath, "utf8");
         Editor.lines = fileContent.split("\n");
     } catch (error) {
         Editor.lines = [""];
