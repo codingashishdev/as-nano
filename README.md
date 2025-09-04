@@ -128,13 +128,6 @@ Writing (`:w`) serializes `lines.join("\n")` to `filePath`. Basic error handling
 * Backspace merge bug risk: ensure line concatenation uses previous + current (not duplicate previous)
 * Add input for `h j k l`, `0`, `$`, `dd`, etc.
 
-## Contributing
-
-1. Fork & branch (`feat/<name>`)
-2. Keep patches focused
-3. Add/update inline comments for non-obvious logic
-4. Open PR describing behavior changes
-
 ## Minimal Specification (Original Goal)
 
 - Start the program
