@@ -50,17 +50,21 @@ const Editor = {
 };
 function render() {
     Terminal.clearScreen();
-    // 1. Draw the text content
-    // \r(carriage return) moves the cursor to the start of the current line
-    for (let i = 0; i < Editor.screenRows - 1; i++) {
+    const textAreaRows = Editor.screenRows - 2;
+    for (let i = 0; i < textAreaRows; i++) {
+        Terminal.moveCursor(i, 0);
+        //clearing the physical line first
+        process_1.default.stdout.write("\x1b[2k");
         if (i < Editor.lines.length) {
-            process_1.default.stdout.write(Editor.lines[i] + "\r\n");
+            process_1.default.stdout.write(Editor.lines[i]);
         }
         else {
-            process_1.default.stdout.write("~\r\n");
+            process_1.default.stdout.write("~");
         }
     }
     //2. Draw the status bar
+    const statusRow = Editor.screenRows - 2;
+    Terminal.moveCursor(statusRow, 0);
     Terminal.invertColors();
     let statusBar;
     if (Editor.mode == "COMMAND") {
@@ -74,15 +78,24 @@ function render() {
     process_1.default.stdout.write(statusBar.padEnd(Editor.screenCols));
     Terminal.resetColors();
     //3. status message line (if not in command mode)
+    const messageRow = Editor.screenRows - 1;
+    Terminal.moveCursor(messageRow, 0);
+    process_1.default.stdout.write("\x1b[2k"); //clear line
     if (Editor.mode !== "COMMAND") {
-        process_1.default.stdout.write("\r\n" + Editor.status.padEnd(Editor.screenCols));
+        process_1.default.stdout.write(Editor.status.slice(0, Editor.screenCols));
+    }
+    else {
+        process_1.default.stdout.write(Editor.status.slice(0, Editor.screenCols));
     }
     //4. move cursor to its correct position
     // if in command mode, cursor moves to the status bar, otherwise to text area
-    if (Editor.mode == "COMMAND") {
-        Terminal.moveCursor(Editor.screenRows - 1, Editor.commandString.length + 1);
+    if (Editor.mode === "COMMAND") {
+        Terminal.moveCursor(statusRow, (Editor.commandString.length + 1));
     }
     else {
+        const lineLen = (Editor.lines[Editor.cursorY] || "").length;
+        if (Editor.cursorX > lineLen)
+            Editor.cursorX = lineLen;
         Terminal.moveCursor(Editor.cursorY, Editor.cursorX);
     }
 }
@@ -168,19 +181,19 @@ function handleInsertModeKeypress(key) {
                 const previousLine = Editor.lines[Editor.cursorY - 1];
                 Editor.cursorX = previousLine.length;
                 Editor.lines[Editor.cursorY - 1] =
-                    Editor.lines[Editor.cursorY - 1] +
-                        Editor.lines[Editor.cursorY - 1];
+                    previousLine +
+                        Editor.lines[Editor.cursorY];
                 Editor.lines.splice(Editor.cursorY, 1);
                 Editor.cursorY--;
             }
             break;
         default:
+            /* if the length of the key pressed is 1 and
+            not a control character like NULL, BEL, Backspace, Tab, Newline, carriage return, ESC */
+            // if basically allows only printable characters and skip all the control keys
             if (key.length === 1 && !/[\x00-\x1F]/.test(key)) {
                 let line = Editor.lines[Editor.cursorY] || "";
-                Editor.lines[Editor.cursorY] =
-                    line.slice(0, Editor.cursorX) +
-                        key +
-                        line.slice(Editor.cursorX);
+                Editor.lines[Editor.cursorY] = line.slice(0, Editor.cursorX) + key + line.slice(Editor.cursorX);
                 Editor.cursorX++;
             }
             break;
@@ -197,6 +210,9 @@ function handleCommandModeKeyPress(key) {
             switch (Editor.commandString) {
                 case "w":
                     saveFile();
+                    break;
+                case "q!":
+                    cleanUpAndExit();
                     break;
                 case "q":
                     cleanUpAndExit();
